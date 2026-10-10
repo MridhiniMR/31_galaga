@@ -9,24 +9,44 @@ ENTRY_TIME = 2.0
 
 def bezier(p0, p1, p2, p3, t):
     u = 1 - t
-    x = u ** 3 * p0[0] + 3 * u * u * t * p1[0] + 3 * u * t * p2[0] + t ** 3 * p3[0]
-    y = u ** 3 * p0[1] + 3 * u * u * t * p1[1] + 3 * u * t * p2[1] + t ** 3 * p3[1]
+    x = u ** 3 * p0[0] + 3 * u * u * t * p1[0] + 3 * u * t * t * p2[0] + t ** 3 * p3[0]
+    y = u ** 3 * p0[1] + 3 * u * u * t * p1[1] + 3 * u * t * t * p2[1] + t ** 3 * p3[1]
     return pygame.Vector2(x, y)
 
 
-def enemy_tint(kind):
-    """Return an (r, g, b) colour override for an enemy kind, or None for the default."""
-    pass
+
+WAVE_PALETTES = [
+    None,
+    {"boss": (255, 200, 60), "red": (255, 140, 60), "blue": (60, 220, 200)},
+    {"boss": (255, 90, 200), "red": (200, 60, 255), "blue": (100, 100, 255)},
+    {"boss": (240, 240, 240), "red": (255, 220, 80), "blue": (120, 255, 120)},
+]
+
+
+def enemy_tint(kind, wave=1):
+    """Return a colour override for an enemy kind, or None for the default."""
+    palette = WAVE_PALETTES[(wave - 1) % len(WAVE_PALETTES)]
+    if palette is None:
+        return None
+    return palette.get(kind)
+
+
+
+BANNER = {"text": "", "time": 0.0, "font": None}
+BANNER_DURATION = 2.0
 
 
 def on_wave_start(wave):
-    """Called at the start of every wave; add banners, speed-ups, or palette swaps here."""
-    pass
+    """Show a temporary banner when a new wave begins."""
+    BANNER["text"] = f"WAVE {wave}"
+    BANNER["time"] = BANNER_DURATION
+
 
 
 def shield_charges(wave):
-    """Return how many hits the player's shield can absorb this wave, or None to disable the shield."""
-    pass
+    """Return one shield charge every three waves."""
+    return 1 if wave % 3 == 0 else None
+
 
 
 ENEMY_COLORS = {"boss": (90, 220, 90), "red": (230, 70, 70), "blue": (80, 140, 240)}
@@ -133,6 +153,7 @@ class Game:
         if self.state != "play":
             return
         self.time += dt
+        BANNER["time"] = max(0.0, BANNER["time"] - dt)
         self.cooldown -= dt
         self.invulnerable = max(0.0, self.invulnerable - dt)
         span = SHIP_GAP * (self.ships - 1)
@@ -189,7 +210,7 @@ class Game:
         for enemy in self.enemies:
             if enemy.delay > 0:
                 continue
-            color = enemy_tint(enemy.kind) or ENEMY_COLORS[enemy.kind]
+            color = enemy_tint(enemy.kind, self.wave) or ENEMY_COLORS[enemy.kind]
             if enemy.kind == "boss" and enemy.hp == 1:
                 color = (170, 90, 220)
             x, y = enemy.pos
@@ -209,6 +230,18 @@ class Game:
         if self.state == "lose":
             label = font.render("GAME OVER - Press R", True, (255, 255, 120))
             screen.blit(label, label.get_rect(center=(WIDTH // 2, HEIGHT // 2)))
+        
+        if BANNER["time"] > 0 and self.state == "play":
+            if BANNER["font"] is None:
+                BANNER["font"] = pygame.font.Font(None, 72)
+            label = BANNER["font"].render(
+                BANNER["text"], True, (255, 255, 120)
+            )
+            screen.blit(
+                label,
+                label.get_rect(center=(WIDTH // 2, HEIGHT // 3))
+            )
+
 
 
 def main():
